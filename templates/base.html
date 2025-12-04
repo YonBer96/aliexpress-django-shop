@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}AliExpress Django{% endblock %}</title>
+</head>
+<body>
+    <nav>
+        <a href="/products/">Productos</a> |
+        <a href="/cart/">Carrito</a>
+    </nav>
+    <hr>
+    {% block content %}{% endblock %}
+</body>
+</html>
