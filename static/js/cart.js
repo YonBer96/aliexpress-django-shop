@@ -1,48 +1,66 @@
-const token_cart = localStorage.getItem("token");
+async function loadCart() {
+    const token = localStorage.getItem("token");
 
-fetch("http://127.0.0.1:8000/api/cart/", {
-    headers: { "Authorization": "Bearer " + token_cart }
-})
-    .then(res => res.json())
-    .then(items => {
-        let html = "";
-        items.forEach(item => {
-            html += `
-            <div>
-                <h3>${item.product_name}</h3>
-                <p>Cantidad: ${item.quantity}</p>
-
-                <button onclick="updateItem(${item.id}, ${item.quantity + 1})">+</button>
-                <button onclick="updateItem(${item.id}, ${item.quantity - 1})">-</button>
-                <button onclick="deleteItem(${item.id})">Eliminar</button>
-            </div>
-            <hr>
-        `;
-        });
-
-        document.getElementById("cart").innerHTML = html;
+    const response = await fetch("/api/orders/cart/", {
+        headers: { "Authorization": "Bearer " + token }
     });
 
-function updateItem(id, quantity) {
-    fetch(`http://127.0.0.1:8000/api/cart/item/${id}/`, {
+    const data = await response.json();
+
+    const container = document.getElementById("cart-container");
+
+    if (data.length === 0) {
+        container.innerHTML = "<p>El carrito está vacío.</p>";
+        return;
+    }
+
+    container.innerHTML = "";
+
+    data.forEach(item => {
+        const html = `
+            <div class="cart-item">
+                <h3>${item.product_name}</h3>
+                <p>Cantidad: 
+                    <input type="number" id="qty-${item.id}" value="${item.quantity}" min="1">
+                </p>
+                <button onclick="updateItem(${item.id})">Actualizar</button>
+                <button onclick="deleteItem(${item.id})">Eliminar</button>
+            </div>
+        `;
+        container.innerHTML += html;
+    });
+}
+
+async function updateItem(itemId) {
+    const token = localStorage.getItem("token");
+    const qty = document.getElementById(`qty-${itemId}`).value;
+
+    const response = await fetch(`/api/orders/cart/item/${itemId}/`, {
         method: "PATCH",
         headers: {
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + token_cart
+            "Authorization": "Bearer " + token
         },
-        body: JSON.stringify({ quantity })
-    })
-        .then(res => res.json())
-        .then(data => alert(data.message || JSON.stringify(data)));
+        body: JSON.stringify({ quantity: qty })
+    });
+
+    const data = await response.json();
+    alert(data.message);
+
+    loadCart();
 }
 
-function deleteItem(id) {
-    fetch(`http://127.0.0.1:8000/api/cart/item/${id}/`, {
+async function deleteItem(itemId) {
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(`/api/orders/cart/item/${itemId}/delete/`, {
         method: "DELETE",
-        headers: {
-            "Authorization": "Bearer " + token_cart
-        }
-    })
-        .then(res => res.json())
-        .then(data => alert(data.message || JSON.stringify(data)));
+        headers: { "Authorization": "Bearer " + token }
+    });
+
+    const data = await response.json();
+    alert(data.message);
+    loadCart();
 }
+
+loadCart();

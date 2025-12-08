@@ -11,9 +11,9 @@ class CategoryAdmin(admin.ModelAdmin):
 # Registrar productos
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('title', 'price', 'category', 'created_at', 'thumbnail_preview')
+    list_display = ('name', 'price', 'category', 'created_at', 'thumbnail_preview')
     list_filter = ('category',)  # Filtrar productos por categoría
-    search_fields = ('title', 'description')  # Buscar por título o descripción
+    search_fields = ('name', 'description')  # Buscar por título o descripción
 
     # Mostrar miniatura de la imagen
     def thumbnail_preview(self, obj):

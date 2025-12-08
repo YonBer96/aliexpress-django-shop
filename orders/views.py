@@ -10,10 +10,14 @@ from .models import Order, OrderItem
 from .serializers import AddToCartSerializer, OrderSerializer, CartItemSerializer
 from django.shortcuts import render
 
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
 
 # -------------------------------------------------------------------
 # ViewSet principal: pedidos + carrito + checkout + resumen
 # -------------------------------------------------------------------
+@method_decorator(csrf_exempt, name='dispatch')
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
@@ -23,7 +27,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     # AÑADIR PRODUCTO AL CARRITO
     # POST /api/orders/add_to_cart/
     # -------------------------------------------------------------
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    @csrf_exempt
     def add_to_cart(self, request):
         serializer = AddToCartSerializer(data=request.data)
 
@@ -176,3 +181,94 @@ class CartItemDeleteView(APIView):
 
 def cart_page(request):
     return render(request,"cart.html")
+
+
+
+# --- Realizar checkout (simulación de pago) ---
+class CheckoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            order = Order.objects.get(user=request.user, status="pendiente")
+        except Order.DoesNotExist:
+            return Response(
+                {"detail": "No tienes un carrito activo"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Aquí normalmente enviarías el pedido a Stripe / PayPal…
+        # Pero lo simulamos:
+        return Response({
+            "order_id": order.id,
+            "total": float(order.total_price()),
+            "message": "Pago simulado listo. Llama al endpoint /confirm para finalizar."
+        })
+
+
+# --- Confirmar pago ---
+class ConfirmPaymentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            order = Order.objects.get(user=request.user, status="pendiente")
+        except Order.DoesNotExist:
+            return Response({"detail": "No hay pedido pendiente"}, status=404)
+
+        order.status = "pagado"
+        order.save()
+
+        return Response({
+            "message": "Pedido completado con éxito",
+            "order_id": order.id
+        })
+
+class OrderSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            order = Order.objects.get(pk=pk, user=request.user)
+        except Order.DoesNotExist:
+            return Response({"detail": "Pedido no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        items = order.items.all()
+
+        total = sum([item.product.price * item.quantity for item in items])
+
+        data = {
+            "order_id": order.id,
+            "items": [
+                {
+                    "product": item.product.name,
+                    "price": item.product.price,
+                    "quantity": item.quantity,
+                    "subtotal": item.product.price * item.quantity
+                }
+                for item in items
+            ],
+            "total": total
+        }
+
+        return Response(data)
+
+class CheckoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            order = Order.objects.get(pk=pk, user=request.user)
+        except Order.DoesNotExist:
+            return Response({"detail": "Pedido no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.status == "Pagado":
+            return Response({"detail": "Este pedido ya está pagado"})
+
+        order.status = "Pagado"
+        order.save()
+
+        return Response({
+            "message": "Pago completado",
+            "order_id": order.id
+        })

@@ -9,11 +9,11 @@ from rest_framework_simplejwt.views import (
 
 
 urlpatterns = [
-    # Páginas HTML
-    path("login.html", TemplateView.as_view(template_name="login.html"), name="login_page"),
-    path("products.html", TemplateView.as_view(template_name="products.html"), name="products_page"),
-    path("cart.html", TemplateView.as_view(template_name="cart.html"), name="cart_page"),
-    path("checkout.html", TemplateView.as_view(template_name="checkout.html"), name="checkout_page"),
+    # HTML pages
+    path("login.html", TemplateView.as_view(template_name="login.html"), name="login"),
+    path("products/", TemplateView.as_view(template_name="products.html"), name="products_page"),
+    path("cart/", TemplateView.as_view(template_name="cart.html"), name="cart"),
+    path("checkout.html", TemplateView.as_view(template_name="checkout.html"), name="checkout"),
 
     # Admin
     path("admin/", admin.site.urls),
@@ -23,15 +23,10 @@ urlpatterns = [
     path("api/", include("orders.urls")),
     path("api/", include("users.urls")),
 
-    # Login DRF
-    path("api-auth/", include('rest_framework.urls')),
-
-    # JWT auth endpoints
+    # JWT
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-
-    path("products/", TemplateView.as_view(template_name="products.html"), name="products_page"),
-
 ]
+
 
 

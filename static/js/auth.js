@@ -11,8 +11,7 @@ async function login() {
     if (response.ok) {
         const data = await response.json();
         localStorage.setItem("token", data.access);
-        alert("Login correcto. Redirigiendo...");
-        window.location.href = "/api/products/";
+        window.location.href = "/products/";
     } else {
         alert("Usuario o contraseña incorrectos");
     }
