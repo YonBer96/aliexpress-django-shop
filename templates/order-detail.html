@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Detalle del pedido</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+    <header class="main-header">
+        <h1 class="logo" onclick="window.location.href='/products.html'">
+            AliYon Shop
+        </h1>
+
+        <button class="cart-button" onclick="window.location.href='/cart.html'">
+            🛒 <span id="cart-count">0</span>
+        </button>
+    </header>
+
+    <main class="order-detail-container">
+
+        <h1>📦 Detalle del pedido</h1>
+
+        <section id="order-items">
+            <!-- Los productos del pedido se insertan aquí por JS -->
+        </section>
+
+        <section class="order-summary">
+            <h2>Total del pedido: <span id="order-total">0€</span></h2>
+        </section>
+
+        <div class="order-actions">
+            <button onclick="window.location.href='/orders.html'">
+                ← Volver a mis pedidos
+            </button>
+
+            <button onclick="window.location.href='/products.html'">
+                Seguir comprando
+            </button>
+
+            <button id="invoice-btn">
+                📄 Descargar factura (PDF)
+            </button>
+        </div>
+
+    </main>
+
+    <script src="/static/js/header.js"></script>
+    <script src="/static/js/order-detail.js"></script>
+
+</body>
+</html>

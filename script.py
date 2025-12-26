@@ -13,11 +13,10 @@ from products.models import Category, Product
 # 2. Crear categoría si no existe
 # ----------------------------------------
 categoria, creada = Category.objects.get_or_create(name="Moda")
-
-print("Categoría usada:", categoria.name)
+print(f"Categoría usada: {categoria.name}")
 
 # ----------------------------------------
-# 3. Lista de productos a crear
+# 3. Lista de productos de prueba
 # ----------------------------------------
 productos = [
     ("Camiseta Premium", 19.99),
@@ -33,16 +32,23 @@ productos = [
 ]
 
 # ----------------------------------------
-# 4. Crear productos
+# 4. Crear productos evitando duplicados
 # ----------------------------------------
 for nombre, precio in productos:
-    Product.objects.create(
-        name=nombre,
-        description="Producto autogenerado para pruebas",
-        price=precio,
-        category=categoria,
-        image="https://picsum.photos/200"
-    )
-    print("Producto creado:", nombre)
 
-print("\n✔️ Todos los productos fueron creados correctamente.\n")
+    producto, creado = Product.objects.get_or_create(
+        name=nombre,
+        defaults={
+            "description": "Producto autogenerado para pruebas.",
+            "price": precio,
+            "stock": 50,               # Stock inicial
+            "category": categoria
+        }
+    )
+
+    if creado:
+        print(f"✔ Producto creado: {nombre}")
+    else:
+        print(f"ℹ Producto ya existía: {nombre}")
+
+print("\n✔️ Finalizado correctamente: productos cargados.\n")

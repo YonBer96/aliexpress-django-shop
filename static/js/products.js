@@ -1,37 +1,40 @@
+const API_URL = "http://127.0.0.1:8000/api";
+
 async function loadProducts() {
-    const token = localStorage.getItem("token");
+    const response = await fetch(`${API_URL}/products/`);
+    const products = await response.json();
 
-    const response = await fetch("/api/products/", {
-        headers: {
-            "Authorization": "Bearer " + token
-        }
+    let html = "";
+
+    products.forEach(p => {
+        html += `
+        <div class="product-card">
+            <img src="https://picsum.photos/200?random=${p.id}" />
+            <h3>${p.name}</h3>
+            <p>${p.description}</p>
+            <strong>${p.price}€</strong>
+            <button onclick="addToCart(${p.id})">Añadir al carrito</button>
+        </div>`;
     });
 
-    const data = await response.json();
-
-    const container = document.getElementById("product-list");
-    container.innerHTML = "";
-
-    data.forEach(prod => {
-        const card = `
-            <div class="product-card">
-                <h3>${prod.name}</h3>
-                <p>Precio: ${prod.price} €</p>
-                <button onclick="addToCart(${prod.id})">Añadir al carrito</button>
-            </div>
-        `;
-        container.innerHTML += card;
-    });
+    document.getElementById("product-list").innerHTML = html;
 }
 
 async function addToCart(productId) {
-    const token = localStorage.getItem("token");
-    console.log("TOKEN:", token)
-    const response = await fetch("/api/orders/add_to_cart/", {
+    const token = localStorage.getItem("access");
+
+    // 🔒 Si no hay token → forzar login
+    if (!token) {
+        alert("Debes iniciar sesión para añadir productos al carrito.");
+        window.location.href = "/login.html";
+        return;
+    }
+
+    const response = await fetch(`${API_URL}/orders/add_to_cart/`, {
         method: "POST",
         headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
         },
         body: JSON.stringify({
             product: productId,
@@ -39,14 +42,23 @@ async function addToCart(productId) {
         })
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        alert("Error: " + (data.detail || "No autorizado"));
+    // 🔥 Token expirado o inválido
+    if (response.status === 401) {
+        alert("Tu sesión ha expirado. Inicia sesión de nuevo.");
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
+        window.location.href = "/login.html";
         return;
     }
 
+    const data = await response.json();
     alert(data.message);
+
+    // Actualizar contador del carrito
+    if (typeof updateCartCount === "function") {
+        updateCartCount();
+    }
 }
+
 
 loadProducts();

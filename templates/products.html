@@ -1,17 +1,27 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
-    <title>Productos</title>
+    <title>Tienda | Productos</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
-
 <body>
-    <h1>Productos disponibles</h1>
 
-    <div id="product-list">Cargando productos...</div>
+    <header class="main-header">
+        <h1 class="logo" onclick="window.location.href='/products.html'">AliYon Shop</h1>
+
+        <button class="cart-button" onclick="window.location.href='/cart.html'">
+            <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+                <path d="M7 4h-2l-3 7v2h2l3-7h11l3 7h2v-2l-3-7h-13zm0 14c1.104 0 2 .897 2 2s-.896 2-2 2c-1.103 0-2-.897-2-2s.897-2 2-2zm10 0c1.103 0 2 .897 2 2s-.897 2-2 2c-1.103 0-2-.897-2-2s.897-2 2-2z" />
+            </svg>
+            <span id="cart-count">0</span>
+        </button>
+    </header>
+
+    <div id="product-list" class="grid"></div>
 
     <script src="/static/js/products.js"></script>
-</body>
+    <script src="/static/js/header.js?v=2"></script>
 
+</body>
 </html>

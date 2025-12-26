@@ -1,66 +1,83 @@
+const API_URL = "http://127.0.0.1:8000/api";
+
 async function loadCart() {
-    const token = localStorage.getItem("token");
 
-    const response = await fetch("/api/orders/cart/", {
-        headers: { "Authorization": "Bearer " + token }
-    });
-
-    const data = await response.json();
-
-    const container = document.getElementById("cart-container");
-
-    if (data.length === 0) {
-        container.innerHTML = "<p>El carrito está vacío.</p>";
+    const token = localStorage.getItem("access");
+    if (!token) {
+        window.location.href = "/login.html";
         return;
     }
 
-    container.innerHTML = "";
-
-    data.forEach(item => {
-        const html = `
-            <div class="cart-item">
-                <h3>${item.product_name}</h3>
-                <p>Cantidad: 
-                    <input type="number" id="qty-${item.id}" value="${item.quantity}" min="1">
-                </p>
-                <button onclick="updateItem(${item.id})">Actualizar</button>
-                <button onclick="deleteItem(${item.id})">Eliminar</button>
-            </div>
-        `;
-        container.innerHTML += html;
+    const response = await fetch(`${API_URL}/orders/cart/`, {
+        headers: { "Authorization": `Bearer ${token}` }
     });
+
+    const items = await response.json();
+    let html = "";
+    let total = 0;
+
+    items.forEach(item => {
+        const subtotal = item.quantity * item.product_price;
+        total += subtotal;
+
+        html += `
+        <div class="cart-item">
+            <img src="https://picsum.photos/120?random=${item.product}" />
+
+            <div>
+                <div class="cart-title">${item.product_name}</div>
+                <div class="cart-price">${item.product_price}€</div>
+            </div>
+
+            <div class="qty-controls">
+                <button onclick="updateQty(${item.id}, ${item.quantity - 1})">−</button>
+                <input type="text" value="${item.quantity}" disabled>
+                <button onclick="updateQty(${item.id}, ${item.quantity + 1})">+</button>
+            </div>
+
+            <div class="cart-price">${subtotal.toFixed(2)}€</div>
+
+            <button class="delete-btn qty-controls" onclick="deleteItem(${item.id})">X</button>
+        </div>
+        `;
+    });
+
+    document.getElementById("cart-container").innerHTML = html;
+    document.getElementById("cart-total").textContent = total.toFixed(2) + "€";
 }
 
-async function updateItem(itemId) {
-    const token = localStorage.getItem("token");
-    const qty = document.getElementById(`qty-${itemId}`).value;
+async function updateQty(itemId, newQty) {
+    if (newQty <= 0) return;
 
-    const response = await fetch(`/api/orders/cart/item/${itemId}/`, {
+    const token = localStorage.getItem("access");
+
+    await fetch(`${API_URL}/orders/cart/items/${itemId}/`, {
         method: "PATCH",
         headers: {
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
+            "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({ quantity: qty })
+        body: JSON.stringify({ quantity: newQty })
     });
-
-    const data = await response.json();
-    alert(data.message);
 
     loadCart();
 }
 
 async function deleteItem(itemId) {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("access");
 
-    const response = await fetch(`/api/orders/cart/item/${itemId}/delete/`, {
+    await fetch(`${API_URL}/orders/cart/items/${itemId}/delete/`, {
         method: "DELETE",
-        headers: { "Authorization": "Bearer " + token }
+        headers: {
+            "Authorization": `Bearer ${token}`
+        }
     });
 
-    const data = await response.json();
-    alert(data.message);
     loadCart();
 }
+
+document.getElementById("checkout-btn").onclick = async () => {
+    window.location.href = "/checkout.html";
+};
 
 loadCart();

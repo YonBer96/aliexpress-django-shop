@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Pedido completado</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+    <header class="main-header">
+        <h1 class="logo" onclick="window.location.href='/products.html'">AliYon Shop</h1>
+
+        <button class="cart-button" onclick="window.location.href='/cart.html'">
+            <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+                <path d="M7 4h-2l-3 7v2h2l3-7h11l3 7h2v-2l-3-7h-13zm0 14c1.104 0 2 .897 2 2s-.896 2-2 2c-1.103 0-2-.897-2-2s.897-2 2-2zm10 0c1.103 0 2 .897 2 2s-.897 2-2 2c-1.103 0-2-.897-2-2s.897-2 2-2z" />
+            </svg>
+            <span id="cart-count">0</span>
+        </button>
+    </header>
+
+    <div class="success-container">
+
+        <div class="success-box">
+            <div class="success-icon">✓</div>
+
+            <h1>¡Gracias por tu compra!</h1>
+            <p>Tu pedido se ha realizado correctamente.</p>
+
+            <p class="order-number">
+                Número de pedido: <strong id="order-id"></strong>
+            </p>
+
+            <button onclick="window.location.href='/products.html'" class="success-btn">Seguir comprando</button>
+
+            <button onclick="window.location.href='/orders.html'" class="success-btn secondary">
+                Ver historial de pedidos
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+    // Obtener el ID del pedido desde la URL
+    const params = new URLSearchParams(window.location.search);
+    document.getElementById("order-id").textContent = params.get("order");
+    </script>
+
+    <script src="/static/js/header.js"></script>
+
+</body>
+</html>

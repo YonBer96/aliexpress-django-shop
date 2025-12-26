@@ -2,17 +2,33 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Login</title>
+    <title>Iniciar sesión | AliYon Shop</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
-<body>
-    <h2>Iniciar Sesión</h2>
+<body class="login-body">
 
-    <input type="text" id="username" placeholder="Usuario"><br><br>
-    <input type="password" id="password" placeholder="Contraseña"><br><br>
+    <div class="login-container">
 
-    <button onclick="login()">Entrar</button>
+        <div class="login-card">
+            <h1>AliYon</h1>
+            <p class="login-subtitle">Inicia sesión para continuar</p>
 
-    <script src="/static/js/auth.js"></script>
+            <form id="login-form">
+                <input type="text" id="username" placeholder="Usuario" required>
+                <input type="password" id="password" placeholder="Contraseña" required>
+
+                <button type="submit">Iniciar sesión</button>
+            </form>
+
+            <p class="login-footer">
+                ¿No tienes cuenta?
+                <a href="/register.html">Regístrate</a>
+            </p>
+        </div>
+
+    </div>
+
+    <script src="/static/js/login.js"></script>
 </body>
 </html>
 

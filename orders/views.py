@@ -1,229 +1,163 @@
-# orders/views.py
-
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from .models import Order, OrderItem
-from .serializers import AddToCartSerializer, OrderSerializer, CartItemSerializer
+from django.http import HttpResponse
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import cm
+from datetime import datetime
+
+
 from django.shortcuts import render
 
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
+from .models import Order, OrderItem
+from .serializers import (
+    AddToCartSerializer,
+    OrderSerializer,
+    CartItemSerializer,
+)
 
 
-# -------------------------------------------------------------------
-# ViewSet principal: pedidos + carrito + checkout + resumen
-# -------------------------------------------------------------------
-@method_decorator(csrf_exempt, name='dispatch')
+# ---------------------------------------------------------
+# 🔥 FUNCIÓN GLOBAL PARA OBTENER O CREAR UN SOLO CARRITO ACTIVO
+# ---------------------------------------------------------
+def get_or_create_active_order(user):
+    # Buscar todos los pedidos pendientes
+    pending_orders = Order.objects.filter(
+        user=user,
+        is_paid=False,
+        status=Order.STATUS_PENDING,
+    ).order_by("id")
+
+    if pending_orders.exists():
+        order = pending_orders.first()
+
+        # Si hay más de uno → eliminar duplicados
+        if pending_orders.count() > 1:
+            pending_orders.exclude(id=order.id).delete()
+
+        return order
+
+    # Si no hay pedido activo → crear uno
+    return Order.objects.create(
+        user=user,
+        is_paid=False,
+        status=Order.STATUS_PENDING,
+    )
+
+
+# ---------------------------------------------------------
+#  GESTIÓN DEL PEDIDO / CARRITO
+# ---------------------------------------------------------
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
-    # -------------------------------------------------------------
-    # AÑADIR PRODUCTO AL CARRITO
-    # POST /api/orders/add_to_cart/
-    # -------------------------------------------------------------
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user)
+
+    # --------------------------------------
+    # Añadir productos al carrito
+    # --------------------------------------
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
-    @csrf_exempt
     def add_to_cart(self, request):
         serializer = AddToCartSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if serializer.is_valid():
-            product = serializer.validated_data['product']
-            quantity = serializer.validated_data['quantity']
+        product = serializer.validated_data['product']
+        quantity = serializer.validated_data['quantity']
 
-            # Obtener o crear carrito del usuario
-            order, _ = Order.objects.get_or_create(
-                user=request.user,
-                is_paid=False
-            )
+        # Usamos carrito activo sin duplicados
+        order = get_or_create_active_order(request.user)
 
-            # Crear o actualizar OrderItem
-            item, created = OrderItem.objects.get_or_create(
-                order=order,
-                product=product
-            )
+        item, created = OrderItem.objects.get_or_create(order=order, product=product)
 
-            item.quantity = item.quantity + quantity if not created else quantity
-            item.save()
+        if created:
+            item.quantity = quantity
+        else:
+            item.quantity += quantity
 
-            return Response(
-                {'message': f'{item.quantity} x {product.name} añadido al carrito'},
-                status=status.HTTP_200_OK
-            )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    # -------------------------------------------------------------
-    # CHECKOUT (marcar como pagado)
-    # POST /api/orders/<id>/checkout/
-    # -------------------------------------------------------------
-    @action(detail=True, methods=['post'])
-    def checkout(self, request, pk=None):
-        order = self.get_object()
-
-        if order.user != request.user:
-            return Response(
-                {"detail": "No tienes permiso para pagar este pedido"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        if order.is_paid:
-            return Response(
-                {"detail": "El pedido ya está pagado"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        order.is_paid = True
-        order.save()
+        item.save()
 
         return Response(
-            {"message": f"Pedido {order.id} pagado correctamente"},
+            {
+                'message': f'{item.quantity} x {product.name} añadido al carrito',
+                'order_id': order.id,
+                'item_id': item.id,
+            },
             status=status.HTTP_200_OK
         )
 
-    # -------------------------------------------------------------
-    # RESUMEN DEL PEDIDO
-    # GET /api/orders/<id>/summary/
-    # -------------------------------------------------------------
-    @action(detail=True, methods=['get'])
-    def summary(self, request, pk=None):
-        order = self.get_object()
 
-        if order.user != request.user:
-            return Response(
-                {"detail": "No tienes permiso para ver este pedido"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        serializer = OrderSerializer(order)
-        return Response(serializer.data)
-
-
-# -------------------------------------------------------------------
-# VISTA DEL CARRITO
-# GET /api/orders/cart/
-# -------------------------------------------------------------------
+# ---------------------------------------------------------
+# 🛒 Ver carrito actual
+# ---------------------------------------------------------
 class CartView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        order, _ = Order.objects.get_or_create(
-            user=request.user,
-            is_paid=False
-        )
+        order = get_or_create_active_order(request.user)
         items = order.items.all()
         serializer = CartItemSerializer(items, many=True)
         return Response(serializer.data)
 
 
-# -------------------------------------------------------------------
-# ACTUALIZAR CANTIDAD
-# PATCH /api/orders/cart/item/<pk>/
-# -------------------------------------------------------------------
+# ---------------------------------------------------------
+# ✏️ Actualizar item del carrito
+# ---------------------------------------------------------
 class CartItemUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
         try:
-            order = Order.objects.get(user=request.user, is_paid=False)
+            order = get_or_create_active_order(request.user)
             item = order.items.get(pk=pk)
         except OrderItem.DoesNotExist:
-            return Response(
-                {"detail": "Item no encontrado"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Item no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
         quantity = request.data.get("quantity")
 
-        if quantity and int(quantity) > 0:
-            item.quantity = int(quantity)
+        try:
+            quantity = int(quantity)
+        except (TypeError, ValueError):
+            quantity = None
+
+        if quantity and quantity > 0:
+            item.quantity = quantity
             item.save()
             return Response(
                 {"message": f"{item.quantity} x {item.product.name} actualizado"},
                 status=status.HTTP_200_OK
             )
 
-        return Response(
-            {"detail": "Cantidad inválida"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"detail": "Cantidad inválida"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# -------------------------------------------------------------------
-# ELIMINAR PRODUCTO DEL CARRITO
-# DELETE /api/orders/cart/item/<pk>/delete/
-# -------------------------------------------------------------------
+# ---------------------------------------------------------
+# ❌ Eliminar item
+# ---------------------------------------------------------
 class CartItemDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk):
         try:
-            order = Order.objects.get(user=request.user, is_paid=False)
+            order = get_or_create_active_order(request.user)
             item = order.items.get(pk=pk)
-            product_name = item.product.name
-            item.delete()
-
-            return Response(
-                {"message": f"{product_name} eliminado del carrito"},
-                status=status.HTTP_200_OK
-            )
-
         except OrderItem.DoesNotExist:
-            return Response(
-                {"detail": "Item no encontrado"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Item no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
-def cart_page(request):
-    return render(request,"cart.html")
+        product_name = item.product.name
+        item.delete()
 
+        return Response({"message": f"{product_name} eliminado del carrito"}, status=status.HTTP_200_OK)
 
 
-# --- Realizar checkout (simulación de pago) ---
-class CheckoutView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        try:
-            order = Order.objects.get(user=request.user, status="pendiente")
-        except Order.DoesNotExist:
-            return Response(
-                {"detail": "No tienes un carrito activo"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        # Aquí normalmente enviarías el pedido a Stripe / PayPal…
-        # Pero lo simulamos:
-        return Response({
-            "order_id": order.id,
-            "total": float(order.total_price()),
-            "message": "Pago simulado listo. Llama al endpoint /confirm para finalizar."
-        })
-
-
-# --- Confirmar pago ---
-class ConfirmPaymentView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        try:
-            order = Order.objects.get(user=request.user, status="pendiente")
-        except Order.DoesNotExist:
-            return Response({"detail": "No hay pedido pendiente"}, status=404)
-
-        order.status = "pagado"
-        order.save()
-
-        return Response({
-            "message": "Pedido completado con éxito",
-            "order_id": order.id
-        })
-
+# ---------------------------------------------------------
+# 📄 Resumen del pedido
+# ---------------------------------------------------------
 class OrderSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -234,25 +168,28 @@ class OrderSummaryView(APIView):
             return Response({"detail": "Pedido no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
         items = order.items.all()
-
-        total = sum([item.product.price * item.quantity for item in items])
+        total = sum(item.total_price for item in items)
 
         data = {
             "order_id": order.id,
             "items": [
                 {
                     "product": item.product.name,
-                    "price": item.product.price,
+                    "price": float(item.product.price),
                     "quantity": item.quantity,
-                    "subtotal": item.product.price * item.quantity
+                    "subtotal": float(item.total_price),
                 }
                 for item in items
             ],
-            "total": total
+            "total": float(total),
         }
 
         return Response(data)
 
+
+# ---------------------------------------------------------
+# 💳 Checkout: Completar pago
+# ---------------------------------------------------------
 class CheckoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -262,13 +199,88 @@ class CheckoutView(APIView):
         except Order.DoesNotExist:
             return Response({"detail": "Pedido no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
-        if order.status == "Pagado":
-            return Response({"detail": "Este pedido ya está pagado"})
+        if order.is_paid or order.status == Order.STATUS_PAID:
+            return Response({"detail": "Este pedido ya está pagado"}, status=status.HTTP_400_BAD_REQUEST)
 
-        order.status = "Pagado"
+        order.is_paid = True
+        order.status = Order.STATUS_PAID
         order.save()
 
-        return Response({
-            "message": "Pago completado",
-            "order_id": order.id
-        })
+        return Response(
+            {
+                "message": "Pago completado",
+                "order_id": order.id,
+                "total": float(order.total_price),
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+# ---------------------------------------------------------
+#  Página HTML del carrito
+# ---------------------------------------------------------
+def cart_page(request):
+    return render(request, "cart.html")
+
+class InvoicePDFView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            order = Order.objects.get(pk=pk, user=request.user, is_paid=True)
+        except Order.DoesNotExist:
+            return Response(
+                {"detail": "Pedido no encontrado"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="factura_pedido_{order.id}.pdf"'
+
+        p = canvas.Canvas(response, pagesize=A4)
+        width, height = A4
+
+        #  Cabecera
+        p.setFont("Helvetica-Bold", 16)
+        p.drawString(2 * cm, height - 2 * cm, "FACTURA")
+
+        p.setFont("Helvetica", 10)
+        p.drawString(2 * cm, height - 3 * cm, f"Pedido nº: {order.id}")
+        p.drawString(2 * cm, height - 3.6 * cm, f"Fecha: {order.created_at.strftime('%d/%m/%Y')}")
+        p.drawString(2 * cm, height - 4.2 * cm, f"Cliente: {order.user.username}")
+
+        #  Tabla de productos
+        y = height - 6 * cm
+
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(2 * cm, y, "Producto")
+        p.drawString(10 * cm, y, "Cantidad")
+        p.drawString(13 * cm, y, "Precio")
+        p.drawString(16 * cm, y, "Subtotal")
+
+        y -= 0.5 * cm
+        p.line(2 * cm, y, width - 2 * cm, y)
+
+        p.setFont("Helvetica", 10)
+
+        for item in order.items.all():
+            y -= 0.8 * cm
+            p.drawString(2 * cm, y, item.product.name)
+            p.drawString(10 * cm, y, str(item.quantity))
+            p.drawString(13 * cm, y, f"{item.product.price} €")
+            p.drawString(16 * cm, y, f"{item.total_price} €")
+
+            if y < 2 * cm:
+                p.showPage()
+                y = height - 2 * cm
+
+        #  Total
+        y -= 1 * cm
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(13 * cm, y, "TOTAL:")
+        p.drawString(16 * cm, y, f"{order.total_price} €")
+
+        p.showPage()
+        p.save()
+
+        return response

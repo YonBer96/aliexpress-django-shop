@@ -2,17 +2,104 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Pagar</title>
+    <title>Checkout</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
 
-    <h2>Confirmación de Pedido</h2>
+    <header class="main-header">
+        <h1 class="logo" onclick="window.location.href='/products.html'">AliYon Shop</h1>
 
-    <button id="payBtn">Pagar</button>
+        <button class="cart-button" onclick="window.location.href='/cart.html'">
+            <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+                <path d="M7 4h-2l-3 7v2h2l3-7h11l3 7h2v-2l-3-7h-13zm0 14c1.104 0 2 .897 2 2s-.896 2-2 2c-1.103 0-2-.897-2-2s.897-2 2-2zm10 0c1.103 0 2 .897 2 2s-.897 2-2 2c-1.103 0-2-.897-2-2s.897-2 2-2z" />
+            </svg>
+            <span id="cart-count">0</span>
+        </button>
+    </header>
 
-    <p id="msg"></p>
+    <h1>Revisar tu pedido</h1>
+
+    <div class="checkout-container">
+
+        <!-- SECCIÓN IZQUIERDA -->
+        <div class="checkout-left">
+
+            <!-- Dirección -->
+            <div class="checkout-block">
+                <h2>Dirección de envío</h2>
+
+                <input type="text" id="address-name" placeholder="Tu nombre completo" />
+                <input type="text" id="address-street" placeholder="Dirección" />
+                <input type="text" id="address-city" placeholder="Ciudad" />
+                <input type="text" id="address-zip" placeholder="Código postal" />
+
+            </div>
+
+            <!-- Métodos de pago -->
+            <div class="checkout-block">
+                <h2>Método de pago</h2>
+
+                <label class="payment-option">
+                    <input type="radio" name="payment" value="card" checked>
+                    Tarjeta bancaria 💳
+                </label>
+
+                <label class="payment-option">
+                    <input type="radio" name="payment" value="paypal">
+                    PayPal 🅿️
+                </label>
+
+                <label class="payment-option">
+                    <input type="radio" name="payment" value="cash">
+                    Pago contra reembolso 💵
+                </label>
+            </div>
+            <div class="checkout-block">
+                <h2>Método de envío</h2>
+
+                <label class="shipping-option">
+                    <input type="radio" name="shipping" value="standard" checked>
+                    Envío estándar (GRATIS) – 3 a 5 días 🚚
+                </label>
+
+                <label class="shipping-option">
+                    <input type="radio" name="shipping" value="fast">
+                    Envío rápido – 24/48h ⚡ (4.99€)
+                </label>
+            </div>
+            <!-- Productos -->
+            <div class="checkout-block">
+                <h2>Productos</h2>
+                <div id="checkout-list"></div>
+            </div>
+
+        </div>
+
+        <!-- SECCIÓN DERECHA (Resumen + botón) -->
+        <div class="checkout-summary">
+            <h2>Resumen</h2>
+
+            <p id="summary-toggle" class="summary-toggle">Ver desglose ▼</p>
+
+            <div id="summary-details" class="summary-details hidden">
+                <p>Productos: <span id="summary-products"></span></p>
+                <p>Envío: <span id="summary-shipping"></span></p>
+            </div>
+
+            <p>Total: <strong id="checkout-total">0€</strong></p>
+
+            <button id="confirm-order-btn">Realizar Pedido</button>
+
+            <div id="loading-animation" class="loading hidden">
+                Procesando pedido...
+            </div>
+        </div>
+
+    </div>
 
     <script src="/static/js/checkout.js"></script>
+    <script src="/static/js/header.js"></script>
 
 </body>
 </html>
